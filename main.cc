@@ -10,15 +10,14 @@
 #define M_PI  (3.14159265)
 #endif
 
-#define TABLE_SIZE   (200)
-typedef struct
-{
-    float sine[TABLE_SIZE];
-    int left_phase;
-    int right_phase;
-    char message[20];
-}
-paTestData;
+#define TABLE_SIZE   (256)
+struct AudioChannel {
+    float volume;
+    float panning;
+    float sample_index;
+    float sample_step;
+    float sample_table[TABLE_SIZE];
+};
 
 /* This routine will be called by the PortAudio engine when audio is needed.
 ** It may called at interrupt level on some machines so don't do anything
@@ -30,7 +29,7 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
                             PaStreamCallbackFlags statusFlags,
                             void *userData )
 {
-    paTestData *data = (paTestData*)userData;
+    auto *data = (AudioChannel*)userData;
     float *out = (float*)outputBuffer;
     unsigned long i;
 
@@ -38,27 +37,20 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
     (void) statusFlags;
     (void) inputBuffer;
     
+    float right_panning = data->panning * 0.5 + 0.5;
+    float left_panning = 1.0 - right_panning;
     for( i=0; i<framesPerBuffer; i++ )
     {
-        *out++ = data->sine[data->left_phase];  /* left */
-        *out++ = data->sine[data->right_phase];  /* right */
-        data->left_phase += 1;
-        if( data->left_phase >= TABLE_SIZE ) data->left_phase -= TABLE_SIZE;
-        data->right_phase += 3; /* higher pitch so we can distinguish left and right. */
-        if( data->right_phase >= TABLE_SIZE ) data->right_phase -= TABLE_SIZE;
+        float sample = data->volume * data->sample_table[static_cast<int>(data->sample_index)];
+        *out++ = sample * left_panning;   // left
+        *out++ = sample * right_panning;  // right
+        data->sample_index += data->sample_step;
+        if (data->sample_index >= TABLE_SIZE) data->sample_index -= TABLE_SIZE;
     }
     
     return paContinue;
 }
 
-/*
- * This routine is called by portaudio when playback is done.
- */
-static void StreamFinished( void* userData )
-{
-   paTestData *data = (paTestData *) userData;
-   printf( "Stream Completed: %s\n", data->message );
-}
 
 /*******************************************************************/
 int main(void);
@@ -67,7 +59,7 @@ int main(void)
     PaStreamParameters outputParameters;
     PaStream *stream;
     PaError err;
-    paTestData data;
+    AudioChannel data;
     int i;
 
     
@@ -76,10 +68,14 @@ int main(void)
     /* initialise sinusoidal wavetable */
     for( i=0; i<TABLE_SIZE; i++ )
     {
-        data.sine[i] = (float) sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. );
+        data.sample_table[i] = (float) sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. );
     }
-    data.left_phase = data.right_phase = 0;
-    
+
+    data.volume = 1.0; // Full volume
+    data.panning = 0; // Center panning
+    data.sample_index = 0;
+    data.sample_step = (float)TABLE_SIZE / SAMPLE_RATE * 440.0; // A
+
     err = Pa_Initialize();
     if( err != paNoError ) goto error;
 
@@ -102,10 +98,6 @@ int main(void)
               paClipOff,      /* we won't output out of range samples so don't bother clipping them */
               patestCallback,
               &data );
-    if( err != paNoError ) goto error;
-
-    sprintf( data.message, "No Message" );
-    err = Pa_SetStreamFinishedCallback( stream, &StreamFinished );
     if( err != paNoError ) goto error;
 
     err = Pa_StartStream( stream );
