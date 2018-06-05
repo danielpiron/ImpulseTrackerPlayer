@@ -49,7 +49,7 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
 
     float right_panning = data->panning * 0.5 + 0.5;
     float left_panning = 1.0 - right_panning;
-    for( i=0; i<framesPerBuffer; i++ )
+    while (framesPerBuffer--)
     {
         int whole_index = static_cast<int>(data->sample_index);
         int next_index = (whole_index >= TABLE_SIZE - 1)
