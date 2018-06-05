@@ -19,6 +19,11 @@ struct AudioChannel {
     float sample_table[TABLE_SIZE];
 };
 
+struct StereoSample {
+    float left;
+    float right;
+};
+
 /* This routine will be called by the PortAudio engine when audio is needed.
 ** It may called at interrupt level on some machines so don't do anything
 ** that could mess up the system like calling malloc() or free().
@@ -30,24 +35,25 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
                             void *userData )
 {
     auto *data = (AudioChannel*)userData;
-    float *out = (float*)outputBuffer;
+    StereoSample *out = (StereoSample*)outputBuffer;
     unsigned long i;
 
     (void) timeInfo; /* Prevent unused variable warnings. */
     (void) statusFlags;
     (void) inputBuffer;
-    
+
     float right_panning = data->panning * 0.5 + 0.5;
     float left_panning = 1.0 - right_panning;
     for( i=0; i<framesPerBuffer; i++ )
     {
         float sample = data->volume * data->sample_table[static_cast<int>(data->sample_index)];
-        *out++ = sample * left_panning;   // left
-        *out++ = sample * right_panning;  // right
+        out->left = sample * left_panning;
+        out->right = sample * right_panning;
         data->sample_index += data->sample_step;
         if (data->sample_index >= TABLE_SIZE) data->sample_index -= TABLE_SIZE;
+        out++;
     }
-    
+
     return paContinue;
 }
 
