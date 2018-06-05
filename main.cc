@@ -10,7 +10,7 @@
 #define M_PI  (3.14159265)
 #endif
 
-#define TABLE_SIZE   (256)
+#define TABLE_SIZE   (200)
 struct AudioChannel {
     float volume;
     float panning;
@@ -23,6 +23,11 @@ struct StereoSample {
     float left;
     float right;
 };
+
+
+inline float lerp(float v1, float v2, float t) {
+    return t * v2 + (1.0 - t) * v1;
+}
 
 /* This routine will be called by the PortAudio engine when audio is needed.
 ** It may called at interrupt level on some machines so don't do anything
@@ -46,7 +51,14 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
     float left_panning = 1.0 - right_panning;
     for( i=0; i<framesPerBuffer; i++ )
     {
-        float sample = data->volume * data->sample_table[static_cast<int>(data->sample_index)];
+        int whole_index = static_cast<int>(data->sample_index);
+        int next_index = (whole_index >= TABLE_SIZE - 1)
+                       ? whole_index - TABLE_SIZE + 1
+                       : whole_index + 1;
+        float sample = lerp(data->sample_table[whole_index],
+                            data->sample_table[next_index],
+                            data->sample_index - floor(data->sample_index));
+        sample *= data->volume;
         out->left = sample * left_panning;
         out->right = sample * right_panning;
         data->sample_index += data->sample_step;
@@ -80,7 +92,7 @@ int main(void)
     data.volume = 1.0; // Full volume
     data.panning = 0; // Center panning
     data.sample_index = 0;
-    data.sample_step = (float)TABLE_SIZE / SAMPLE_RATE * 440.0; // A
+    data.sample_step = 440.0 * TABLE_SIZE / SAMPLE_RATE; // A
 
     err = Pa_Initialize();
     if( err != paNoError ) goto error;
