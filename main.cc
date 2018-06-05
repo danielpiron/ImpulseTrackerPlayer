@@ -1,22 +1,27 @@
 #include "portaudio.h"
 #include <cmath>
 #include <cstdio>
+#include <vector>
 
 #define NUM_SECONDS (5)
 #define SAMPLE_RATE (44100)
 #define FRAMES_PER_BUFFER (64)
+#define TABLE_SIZE (200)
 
 #ifndef M_PI
 #define M_PI (3.14159265)
 #endif
 
-#define TABLE_SIZE (200)
+struct Sample {
+    std::vector<float> wavetable;
+};
+
 struct AudioChannel {
     float volume;
     float panning;
     float sample_index;
     float sample_step;
-    float sample_table[TABLE_SIZE];
+    Sample *sample;
 };
 
 struct StereoSample {
@@ -51,18 +56,18 @@ static int patestCallback(const void* inputBuffer, void* outputBuffer,
     float left_panning = 1.0 - right_panning;
     while (framesPerBuffer--) {
         int whole_index = static_cast<int>(data->sample_index);
-        int next_index = (whole_index >= TABLE_SIZE - 1)
-            ? whole_index - TABLE_SIZE + 1
+        int next_index = (whole_index >= data->sample->wavetable.size() - 1)
+            ? whole_index - data->sample->wavetable.size() + 1
             : whole_index + 1;
-        float sample = lerp(data->sample_table[whole_index],
-            data->sample_table[next_index],
+        float sample = lerp(data->sample->wavetable[whole_index],
+            data->sample->wavetable[next_index],
             data->sample_index - floor(data->sample_index));
         sample *= data->volume;
         out->left = sample * left_panning;
         out->right = sample * right_panning;
         data->sample_index += data->sample_step;
-        if (data->sample_index >= TABLE_SIZE)
-            data->sample_index -= TABLE_SIZE;
+        if (data->sample_index >= data->sample->wavetable.size())
+            data->sample_index -= data->sample->wavetable.size();
         out++;
     }
 
@@ -77,19 +82,22 @@ int main(void)
     PaStream* stream;
     PaError err;
     AudioChannel data;
+    Sample sine;
     int i;
 
     printf("PortAudio Test: output sine wave. SR = %d, BufSize = %d\n", SAMPLE_RATE, FRAMES_PER_BUFFER);
 
+    sine.wavetable.reserve(TABLE_SIZE);
     /* initialise sinusoidal wavetable */
     for (i = 0; i < TABLE_SIZE; i++) {
-        data.sample_table[i] = (float)sin(((double)i / (double)TABLE_SIZE) * M_PI * 2.);
+        sine.wavetable.push_back((float)sin(((double)i / (double)TABLE_SIZE) * M_PI * 2.));
     }
 
     data.volume = 1.0; // Full volume
     data.panning = 0; // Center panning
     data.sample_index = 0;
     data.sample_step = 440.0 * TABLE_SIZE / SAMPLE_RATE; // A
+    data.sample = &sine;
 
     err = Pa_Initialize();
     if (err != paNoError)
