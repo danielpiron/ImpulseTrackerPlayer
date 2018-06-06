@@ -129,7 +129,9 @@ int main(void)
 
     data.volume = 1.0; // Full volume
     data.panning = 0; // Center panning
-    data.loop.type = LoopType::none;
+    data.loop.type = LoopType::forward;
+    data.loop.begin = 12000;
+    data.loop.end = samplesize;
     data.sample_index = 0;
     data.sample_step = 11025.0 / SAMPLE_RATE;
     data.sample = &atomic;
