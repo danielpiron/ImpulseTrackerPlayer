@@ -13,6 +13,17 @@
 #define M_PI (3.14159265)
 #endif
 
+enum LoopType {
+    none,
+    forward,
+};
+
+struct LoopParams {
+    LoopType type;
+    int begin;
+    int end;
+};
+
 struct Sample {
     std::vector<float> wavetable;
 };
@@ -22,7 +33,9 @@ struct AudioChannel {
     float panning;
     float sample_index;
     float sample_step;
-    Sample *sample;
+    LoopParams loop;
+    const Sample *sample;
+    bool is_active;
 };
 
 struct StereoSample {
@@ -47,7 +60,7 @@ static int patestCallback(const void* inputBuffer, void* outputBuffer,
 {
     auto* data = (AudioChannel*)userData;
     StereoSample* out = (StereoSample*)outputBuffer;
-    unsigned long i;
+    int samples_remaining = framesPerBuffer;
 
     (void)timeInfo; /* Prevent unused variable warnings. */
     (void)statusFlags;
@@ -55,7 +68,7 @@ static int patestCallback(const void* inputBuffer, void* outputBuffer,
 
     float right_panning = data->panning * 0.5 + 0.5;
     float left_panning = 1.0 - right_panning;
-    while (framesPerBuffer--) {
+    while (data->is_active && samples_remaining--) {
         int whole_index = static_cast<int>(data->sample_index);
         int next_index = (whole_index >= data->sample->wavetable.size() - 1)
             ? whole_index - data->sample->wavetable.size() + 1
@@ -67,9 +80,22 @@ static int patestCallback(const void* inputBuffer, void* outputBuffer,
         out->left = sample * left_panning;
         out->right = sample * right_panning;
         data->sample_index += data->sample_step;
-        if (data->sample_index >= data->sample->wavetable.size())
-            data->sample_index -= data->sample->wavetable.size();
+        if (data->loop.type == LoopType::none
+            && data->sample_index >= data->sample->wavetable.size()) {
+            data->is_active = false;
+        }
+        else if (data->loop.type == LoopType::forward
+                 && data->sample_index >= data->loop.end) {
+                 data->sample_index -= data->loop.end - data->loop.begin;
+        }
         out++;
+    }
+
+    while (samples_remaining > 0) {
+        out->left = 0;
+        out->right = 0;
+        out++;
+        samples_remaining--;
     }
 
     return paContinue;
@@ -103,9 +129,11 @@ int main(void)
 
     data.volume = 1.0; // Full volume
     data.panning = 0; // Center panning
+    data.loop.type = LoopType::none;
     data.sample_index = 0;
     data.sample_step = 11025.0 / SAMPLE_RATE;
     data.sample = &atomic;
+    data.is_active = true;
 
     err = Pa_Initialize();
     if (err != paNoError)
