@@ -1,6 +1,7 @@
 #include "portaudio.h"
 #include <cmath>
 #include <cstdio>
+#include <fstream>
 #include <vector>
 
 #define NUM_SECONDS (5)
@@ -82,22 +83,29 @@ int main(void)
     PaStream* stream;
     PaError err;
     AudioChannel data;
-    Sample sine;
+    Sample atomic;
     int i;
 
     printf("PortAudio Test: output sine wave. SR = %d, BufSize = %d\n", SAMPLE_RATE, FRAMES_PER_BUFFER);
 
-    sine.wavetable.reserve(TABLE_SIZE);
-    /* initialise sinusoidal wavetable */
-    for (i = 0; i < TABLE_SIZE; i++) {
-        sine.wavetable.push_back((float)sin(((double)i / (double)TABLE_SIZE) * M_PI * 2.));
-    }
+    std::streampos begin, end;
+    std::ifstream rawsample("untitled.raw", std::ios::binary);
+    begin = rawsample.tellg();
+    rawsample.seekg(0, std::ios::end);
+    end = rawsample.tellg();
+    auto samplesize = end - begin;
+    rawsample.seekg(0, std::ios::beg);
+
+    atomic.wavetable.reserve(samplesize);
+    for (size_t i = 0; i < samplesize; i++)
+        atomic.wavetable.push_back(static_cast<char>(rawsample.get()) / 127.0);
+
 
     data.volume = 1.0; // Full volume
     data.panning = 0; // Center panning
     data.sample_index = 0;
-    data.sample_step = 440.0 * TABLE_SIZE / SAMPLE_RATE; // A
-    data.sample = &sine;
+    data.sample_step = 11025.0 / SAMPLE_RATE;
+    data.sample = &atomic;
 
     err = Pa_Initialize();
     if (err != paNoError)
