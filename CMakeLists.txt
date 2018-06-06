@@ -4,7 +4,7 @@ project(SonicMan)
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(sonic main.cc)
+add_executable(sonic main.cc mixer.cc)
 target_compile_features(sonic PRIVATE cxx_std_11)
 target_compile_options(sonic
                        INTERFACE

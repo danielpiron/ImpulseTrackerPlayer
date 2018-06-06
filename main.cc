@@ -1,52 +1,11 @@
 #include "portaudio.h"
-#include <cmath>
+#include "mixer.h"
 #include <cstdio>
 #include <fstream>
-#include <vector>
 
 #define NUM_SECONDS (5)
 #define SAMPLE_RATE (44100)
 #define FRAMES_PER_BUFFER (64)
-#define TABLE_SIZE (200)
-
-#ifndef M_PI
-#define M_PI (3.14159265)
-#endif
-
-enum LoopType {
-    none,
-    forward,
-};
-
-struct LoopParams {
-    LoopType type;
-    int begin;
-    int end;
-};
-
-struct Sample {
-    std::vector<float> wavetable;
-};
-
-struct AudioChannel {
-    float volume;
-    float panning;
-    float sample_index;
-    float sample_step;
-    LoopParams loop;
-    const Sample *sample;
-    bool is_active;
-};
-
-struct StereoSample {
-    float left;
-    float right;
-};
-
-inline float lerp(float v1, float v2, float t)
-{
-    return t * v2 + (1.0 - t) * v1;
-}
 
 /* This routine will be called by the PortAudio engine when audio is needed.
 ** It may called at interrupt level on some machines so don't do anything
@@ -60,44 +19,12 @@ static int patestCallback(const void* inputBuffer, void* outputBuffer,
 {
     auto* data = (AudioChannel*)userData;
     StereoSample* out = (StereoSample*)outputBuffer;
-    int samples_remaining = framesPerBuffer;
 
     (void)timeInfo; /* Prevent unused variable warnings. */
     (void)statusFlags;
     (void)inputBuffer;
 
-    float right_panning = data->panning * 0.5 + 0.5;
-    float left_panning = 1.0 - right_panning;
-    while (data->is_active && samples_remaining--) {
-        int whole_index = static_cast<int>(data->sample_index);
-        int next_index = (whole_index >= data->sample->wavetable.size() - 1)
-            ? whole_index - data->sample->wavetable.size() + 1
-            : whole_index + 1;
-        float sample = lerp(data->sample->wavetable[whole_index],
-            data->sample->wavetable[next_index],
-            data->sample_index - floor(data->sample_index));
-        sample *= data->volume;
-        out->left = sample * left_panning;
-        out->right = sample * right_panning;
-        data->sample_index += data->sample_step;
-        if (data->loop.type == LoopType::none
-            && data->sample_index >= data->sample->wavetable.size()) {
-            data->is_active = false;
-        }
-        else if (data->loop.type == LoopType::forward
-                 && data->sample_index >= data->loop.end) {
-                 data->sample_index -= data->loop.end - data->loop.begin;
-        }
-        out++;
-    }
-
-    while (samples_remaining > 0) {
-        out->left = 0;
-        out->right = 0;
-        out++;
-        samples_remaining--;
-    }
-
+    render_audio(data, (StereoSample*)outputBuffer, framesPerBuffer);
     return paContinue;
 }
 
