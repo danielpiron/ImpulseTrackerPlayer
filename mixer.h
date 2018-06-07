@@ -11,6 +11,10 @@ struct LoopParams {
     LoopType type;
     int begin;
     int end;
+
+    bool is_off() { return type == LoopType::none; }
+    bool is_forward() { return type == LoopType::forward; }
+    int length() { return end - begin; }
 };
 
 struct Sample {

@@ -1,5 +1,6 @@
 #include "mixer.h"
 #include <cmath>
+#include <cstring>
 
 inline float lerp(float v1, float v2, float t)
 {
@@ -25,20 +26,14 @@ void render_audio(AudioChannel* data, StereoSample* out, int samples_remaining)
         out->right = data->volume * sample * right_panning;
 
         data->sample_index += data->sample_step;
-        if (data->loop.type == LoopType::none
-            && data->sample_index >= data->sample->wavetable.size()) {
+        if (data->loop.is_off() && data->sample_index >= data->sample->wavetable.size())
             data->is_active = false;
-        } else if (data->loop.type == LoopType::forward
-            && data->sample_index >= data->loop.end) {
-            data->sample_index -= data->loop.end - data->loop.begin;
-        }
+        else if (data->loop.is_forward() && data->sample_index >= data->loop.end)
+            data->sample_index -= data->loop.length();
+
         out++;
     }
 
-    while (samples_remaining > 0) {
-        out->left = 0;
-        out->right = 0;
-        out++;
-        samples_remaining--;
-    }
+    if (samples_remaining > 0)
+        std::memset(out, 0, samples_remaining * sizeof(out[0]));
 }
