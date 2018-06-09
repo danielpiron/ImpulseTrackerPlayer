@@ -26,11 +26,22 @@ void render_audio(AudioChannel* data, StereoSample* out, int samples_remaining)
         out->right = data->volume * sample * right_panning;
 
         data->sample_index += data->sample_step;
-        if (data->loop.is_off() && data->sample_index >= data->sample->wavetable.size())
-            data->is_active = false;
-        else if (data->loop.is_forward() && data->sample_index >= data->loop.end)
-            data->sample_index -= data->loop.length();
-
+        if (data->loop.is_off() && data->sample_index >= data->sample->wavetable.size()) {
+                data->is_active = false;
+        }
+        else if (data->loop.is_forward() && data->sample_index >= data->loop.end) {
+                    data->sample_index -= data->loop.length();
+        }
+        else if (data->loop.is_pingpong()) {
+            if (data->sample_step > 0 && data->sample_index >= data->loop.end) {
+                data->sample_index = (data->loop.end) - (data->sample_index - data->loop.end + 1);
+                data->sample_step = -data->sample_step;
+            }
+            else if (data->sample_step < 0 && data->sample_index < data->loop.begin) {
+                data->sample_index = data->loop.begin + (data->loop.begin - data->sample_index);
+                data->sample_step = -data->sample_step;
+            }
+        }
         out++;
     }
 

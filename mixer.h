@@ -2,9 +2,11 @@
 #define _MIXER_H_
 #include <vector>
 
+
 enum LoopType {
     none,
     forward,
+    pingpong,
 };
 
 struct LoopParams {
@@ -14,6 +16,7 @@ struct LoopParams {
 
     bool is_off() { return type == LoopType::none; }
     bool is_forward() { return type == LoopType::forward; }
+    bool is_pingpong() { return type == LoopType::pingpong; }
     int length() { return end - begin; }
 };
 

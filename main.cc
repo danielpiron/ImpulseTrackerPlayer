@@ -56,7 +56,7 @@ int main(void)
 
     data.volume = 1.0; // Full volume
     data.panning = 0; // Center panning
-    data.loop.type = LoopType::forward;
+    data.loop.type = LoopType::pingpong;
     data.loop.begin = 12000;
     data.loop.end = samplesize;
     data.sample_index = 0;
