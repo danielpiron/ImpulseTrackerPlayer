@@ -11,7 +11,7 @@ void render_audio(AudioChannel* data, StereoSample* out, int samples_remaining)
 {
     float right_panning = data->panning * 0.5 + 0.5;
     float left_panning = 1.0 - right_panning;
-    while (data->is_active && samples_remaining) {
+    for (;data->is_active && samples_remaining; out++, samples_remaining--) {
         float sample = data->sample->wavetable[data->sample_index];
         out->left = data->volume * sample * left_panning;
         out->right = data->volume * sample * right_panning;
@@ -30,8 +30,6 @@ void render_audio(AudioChannel* data, StereoSample* out, int samples_remaining)
                 data->sample_step = -data->sample_step;
             }
         }
-        out++;
-        samples_remaining--;
     }
     // Set any remaining samples to zero (silence)
     std::memset(out, 0, samples_remaining * sizeof(out[0]));
