@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <fstream>
 
-#define NUM_SECONDS (5)
 #define SAMPLE_RATE (44100)
 #define FRAMES_PER_BUFFER (64)
 
@@ -88,8 +87,8 @@ int main(void)
     if (err != paNoError)
         goto error;
 
-    printf("Play for %d seconds.\n", NUM_SECONDS);
-    Pa_Sleep(NUM_SECONDS * 1000);
+    printf("Press enter to exit...\n");
+    getchar();
 
     err = Pa_StopStream(stream);
     if (err != paNoError)
