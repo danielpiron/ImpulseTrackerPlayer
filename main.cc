@@ -35,7 +35,7 @@ int main(void)
     PaStreamParameters outputParameters;
     PaStream* stream;
     PaError err;
-    AudioChannel data;
+    AudioChannel data(SAMPLE_RATE);
     Sample atomic;
     int i;
 
@@ -53,16 +53,10 @@ int main(void)
     for (size_t i = 0; i < samplesize; i++)
         atomic.wavetable.push_back(static_cast<char>(rawsample.get()) / 127.0);
 
-
-    data.volume = 1.0; // Full volume
-    data.panning = 0; // Center panning
-    data.loop.type = LoopType::pingpong;
-    data.loop.begin = 12000;
-    data.loop.end = samplesize;
-    data.sample_index = 0;
-    data.sample_step = 11025.0 / SAMPLE_RATE;
-    data.sample = &atomic;
-    data.is_active = true;
+    data.play(&atomic, {.type = LoopType::pingpong, .begin = 12000, .end = samplesize});
+    data.set_volume(AudioChannel::volume_max);
+    data.set_panning(AudioChannel::panning_center);
+    data.set_playback_rate(11025);
 
     err = Pa_Initialize();
     if (err != paNoError)

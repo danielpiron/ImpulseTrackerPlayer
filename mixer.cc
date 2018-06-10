@@ -27,7 +27,7 @@ void render_audio(AudioChannel* data, StereoSample* out, int samples_remaining)
 
         data->sample_index += data->sample_step;
         if (data->loop.is_off() && data->sample_index >= data->sample->wavetable.size()) {
-            data->is_active = false;
+            data->disable();
         } else if (data->loop.is_forward() && data->sample_index >= data->loop.end) {
             data->sample_index -= data->loop.length();
         } else if (data->loop.is_pingpong()) {
