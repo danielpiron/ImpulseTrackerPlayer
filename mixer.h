@@ -94,7 +94,7 @@ struct Mixer {
         std::vector<StereoSample> buffer;
         explicit ChannelAndBuffer(int sample_rate, int max_size)
             : channel(sample_rate)
-            , buffer(max_size, {0, 0})
+            , buffer(max_size, { 0, 0 })
         {
         }
     };

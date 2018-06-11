@@ -38,7 +38,7 @@ void render_audio(AudioChannel* data, StereoSample* out, int samples_remaining)
 void Mixer::render(StereoSample* out, int samples_to_render)
 {
     memset(out, 0, samples_to_render * sizeof(out[0]));
-    for (auto &c : channels_and_buffers) {
+    for (auto& c : channels_and_buffers) {
         render_audio(&c.channel, &c.buffer[0], samples_to_render);
         for (int i = 0; i < samples_to_render; i++) {
             out[i].left += c.buffer[i].left;

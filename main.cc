@@ -1,5 +1,5 @@
-#include "portaudio.h"
 #include "mixer.h"
+#include "portaudio.h"
 #include <cstdio>
 #include <fstream>
 
@@ -52,17 +52,17 @@ int main(void)
     for (size_t i = 0; i < samplesize; i++)
         atomic.wavetable.push_back(static_cast<char>(rawsample.get()) / 127.0);
 
-    mix.channel(0).play(&atomic, {.type = LoopType::pingpong, .begin = 12000, .end = samplesize});
+    mix.channel(0).play(&atomic, { .type = LoopType::pingpong, .begin = 12000, .end = samplesize });
     mix.channel(0).set_volume(AudioChannel::volume_max);
     mix.channel(0).set_panning(AudioChannel::panning_full_left * 0.75);
     mix.channel(0).set_playback_rate(11025);
 
-    mix.channel(1).play(&atomic, {.type = LoopType::forward, .begin = 12000, .end = samplesize});
+    mix.channel(1).play(&atomic, { .type = LoopType::forward, .begin = 12000, .end = samplesize });
     mix.channel(1).set_volume(AudioChannel::volume_max);
     mix.channel(1).set_panning(AudioChannel::panning_full_right * 0.75);
     mix.channel(1).set_playback_rate(11025 * 1.10); // 10% faster than the other channel
 
-    mix.channel(2).play(&atomic, {.type = LoopType::forward, .begin = 0, .end = samplesize});
+    mix.channel(2).play(&atomic, { .type = LoopType::forward, .begin = 0, .end = samplesize });
     mix.channel(2).set_volume(AudioChannel::volume_max);
     mix.channel(2).set_panning(AudioChannel::panning_center);
     mix.channel(2).set_playback_rate(11025 * .95);
