@@ -16,14 +16,14 @@ static int patestCallback(const void* inputBuffer, void* outputBuffer,
     PaStreamCallbackFlags statusFlags,
     void* userData)
 {
-    auto* data = (AudioChannel*)userData;
+    auto* mix = reinterpret_cast<Mixer*>(userData);
     StereoSample* out = (StereoSample*)outputBuffer;
 
     (void)timeInfo; /* Prevent unused variable warnings. */
     (void)statusFlags;
     (void)inputBuffer;
 
-    render_audio(data, (StereoSample*)outputBuffer, framesPerBuffer);
+    mix->render((StereoSample*)outputBuffer, framesPerBuffer);
     return paContinue;
 }
 
@@ -34,7 +34,7 @@ int main(void)
     PaStreamParameters outputParameters;
     PaStream* stream;
     PaError err;
-    AudioChannel data(SAMPLE_RATE);
+    Mixer mix(2, SAMPLE_RATE, FRAMES_PER_BUFFER);
     Sample atomic;
     int i;
 
@@ -52,10 +52,15 @@ int main(void)
     for (size_t i = 0; i < samplesize; i++)
         atomic.wavetable.push_back(static_cast<char>(rawsample.get()) / 127.0);
 
-    data.play(&atomic, {.type = LoopType::pingpong, .begin = 12000, .end = samplesize});
-    data.set_volume(AudioChannel::volume_max);
-    data.set_panning(AudioChannel::panning_center);
-    data.set_playback_rate(11025);
+    mix.channel(0).play(&atomic, {.type = LoopType::pingpong, .begin = 12000, .end = samplesize});
+    mix.channel(0).set_volume(AudioChannel::volume_max);
+    mix.channel(0).set_panning(AudioChannel::panning_full_left * 0.75);
+    mix.channel(0).set_playback_rate(11025);
+
+    mix.channel(1).play(&atomic, {.type = LoopType::forward, .begin = 12000, .end = samplesize});
+    mix.channel(1).set_volume(AudioChannel::volume_max);
+    mix.channel(1).set_panning(AudioChannel::panning_full_right * 0.75);
+    mix.channel(1).set_playback_rate(11025 * 1.10); // 10% faster than the other channel
 
     err = Pa_Initialize();
     if (err != paNoError)
@@ -79,7 +84,7 @@ int main(void)
         FRAMES_PER_BUFFER,
         paClipOff, /* we won't output out of range samples so don't bother clipping them */
         patestCallback,
-        &data);
+        &mix);
     if (err != paNoError)
         goto error;
 

@@ -4,7 +4,8 @@
 #include <vector>
 
 template <typename T>
-inline T clamp(T v, T min_v, T max_v) {
+inline T clamp(T v, T min_v, T max_v)
+{
     return std::max(std::min(max_v, v), min_v);
 }
 
@@ -64,17 +65,20 @@ struct AudioChannel {
             sample_step = playback_rate / sample_rate;
         }
     }
-    void play(const Sample* samp, const LoopParams& loop_params) {
+    void play(const Sample* samp, const LoopParams& loop_params)
+    {
         sample = samp;
         loop = loop_params;
         sample_index = 0;
         enable();
     }
 
-    void enable() {
+    void enable()
+    {
         is_active = true;
     }
-    void disable() {
+    void disable()
+    {
         is_active = false;
     }
 };
@@ -82,6 +86,27 @@ struct AudioChannel {
 struct StereoSample {
     float left;
     float right;
+};
+
+struct Mixer {
+    struct ChannelAndBuffer {
+        AudioChannel channel;
+        std::vector<StereoSample> buffer;
+        explicit ChannelAndBuffer(int sample_rate, int max_size)
+            : channel(sample_rate)
+            , buffer(max_size, {0, 0})
+        {
+        }
+    };
+    std::vector<StereoSample> accmum_buffer;
+    std::vector<ChannelAndBuffer> channels_and_buffers;
+    Mixer(int num_channels, int sample_rate, int max_size)
+        : channels_and_buffers(num_channels,
+              ChannelAndBuffer(sample_rate, max_size))
+    {
+    }
+    void render(StereoSample* out, int samples_remaining);
+    AudioChannel& channel(int i) { return channels_and_buffers[i].channel; }
 };
 
 void render_audio(AudioChannel* data, StereoSample* out, int samples_remaining);
