@@ -4,3 +4,4 @@ compile_commands.json
 cmake_install.cmake
 Makefile
 sonic
+perf.data*

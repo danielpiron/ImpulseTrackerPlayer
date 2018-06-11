@@ -1,6 +1,7 @@
 #ifndef _MIXER_H_
 #define _MIXER_H_
 #include <algorithm>
+#include <cstdint>
 #include <vector>
 
 template <typename T>
@@ -16,14 +17,21 @@ enum LoopType {
 };
 
 struct LoopParams {
-    LoopType type;
-    long begin;
-    long end;
+    LoopType type = LoopType::none;
+    uint32_t begin = 0;
+    uint32_t end = 0;
 
+    LoopParams() = default;
+    LoopParams(LoopType t, uint32_t b, uint32_t e)
+        : type(t)
+        , begin(b)
+        , end(e)
+    {
+    }
     bool is_off() { return type == LoopType::none; }
     bool is_forward() { return type == LoopType::forward; }
     bool is_pingpong() { return type == LoopType::pingpong; }
-    int length() { return end - begin; }
+    uint32_t length() { return end - begin; }
 };
 
 struct Sample {
@@ -92,7 +100,7 @@ struct Mixer {
     struct ChannelAndBuffer {
         AudioChannel channel;
         std::vector<StereoSample> buffer;
-        explicit ChannelAndBuffer(int sample_rate, int max_size)
+        explicit ChannelAndBuffer(int sample_rate, size_t max_size)
             : channel(sample_rate)
             , buffer(max_size, { 0, 0 })
         {
@@ -100,13 +108,13 @@ struct Mixer {
     };
     std::vector<StereoSample> accmum_buffer;
     std::vector<ChannelAndBuffer> channels_and_buffers;
-    Mixer(int num_channels, int sample_rate, int max_size)
+    Mixer(size_t num_channels, int sample_rate, size_t max_size)
         : channels_and_buffers(num_channels,
               ChannelAndBuffer(sample_rate, max_size))
     {
     }
-    void render(StereoSample* out, int samples_remaining);
-    AudioChannel& channel(int i) { return channels_and_buffers[i].channel; }
+    void render(StereoSample* out, size_t samples_remaining);
+    AudioChannel& channel(size_t i) { return channels_and_buffers[i].channel; }
 };
 
 void render_audio(AudioChannel* data, StereoSample* out, int samples_remaining);

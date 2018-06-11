@@ -17,13 +17,13 @@ static int patestCallback(const void* inputBuffer, void* outputBuffer,
     void* userData)
 {
     auto* mix = reinterpret_cast<Mixer*>(userData);
-    StereoSample* out = (StereoSample*)outputBuffer;
+    StereoSample* out = reinterpret_cast<StereoSample*>(outputBuffer);
 
     (void)timeInfo; /* Prevent unused variable warnings. */
     (void)statusFlags;
     (void)inputBuffer;
 
-    mix->render((StereoSample*)outputBuffer, framesPerBuffer);
+    mix->render(out, framesPerBuffer);
     return paContinue;
 }
 
@@ -36,36 +36,34 @@ int main(void)
     PaError err;
     Mixer mix(3, SAMPLE_RATE, FRAMES_PER_BUFFER);
     Sample atomic;
-    int i;
 
     printf("PortAudio Test: output sine wave. SR = %d, BufSize = %d\n", SAMPLE_RATE, FRAMES_PER_BUFFER);
 
-    std::streampos begin, end;
     std::ifstream rawsample("untitled.raw", std::ios::binary);
-    begin = rawsample.tellg();
+    auto begin = rawsample.tellg();
     rawsample.seekg(0, std::ios::end);
-    end = rawsample.tellg();
+    auto end = rawsample.tellg();
     auto samplesize = end - begin;
     rawsample.seekg(0, std::ios::beg);
 
-    atomic.wavetable.reserve(samplesize);
-    for (size_t i = 0; i < samplesize; i++)
-        atomic.wavetable.push_back(static_cast<char>(rawsample.get()) / 127.0);
+    atomic.wavetable.reserve(static_cast<size_t>(samplesize));
+    for (int i = 0; i < samplesize; i++)
+        atomic.wavetable.push_back(static_cast<char>(rawsample.get()) / 127.0f);
 
-    mix.channel(0).play(&atomic, { .type = LoopType::pingpong, .begin = 12000, .end = samplesize });
+    mix.channel(0).play(&atomic, LoopParams(LoopType::pingpong, 12000, samplesize));
     mix.channel(0).set_volume(AudioChannel::volume_max);
-    mix.channel(0).set_panning(AudioChannel::panning_full_left * 0.75);
+    mix.channel(0).set_panning(AudioChannel::panning_full_left * 0.75f);
     mix.channel(0).set_playback_rate(11025);
 
-    mix.channel(1).play(&atomic, { .type = LoopType::forward, .begin = 12000, .end = samplesize });
+    mix.channel(1).play(&atomic, LoopParams(LoopType::pingpong, 12000, samplesize));
     mix.channel(1).set_volume(AudioChannel::volume_max);
-    mix.channel(1).set_panning(AudioChannel::panning_full_right * 0.75);
-    mix.channel(1).set_playback_rate(11025 * 1.10); // 10% faster than the other channel
+    mix.channel(1).set_panning(AudioChannel::panning_full_right * 0.75f);
+    mix.channel(1).set_playback_rate(11025 * 1.10f); // 10% faster than the other channel
 
-    mix.channel(2).play(&atomic, { .type = LoopType::forward, .begin = 0, .end = samplesize });
+    mix.channel(2).play(&atomic, LoopParams(LoopType::pingpong, 12000, samplesize));
     mix.channel(2).set_volume(AudioChannel::volume_max);
     mix.channel(2).set_panning(AudioChannel::panning_center);
-    mix.channel(2).set_playback_rate(11025 * .95);
+    mix.channel(2).set_playback_rate(11025 * .95f);
 
     err = Pa_Initialize();
     if (err != paNoError)
