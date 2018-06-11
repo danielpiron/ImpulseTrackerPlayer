@@ -4,7 +4,7 @@
 #include <fstream>
 
 #define SAMPLE_RATE (44100)
-#define FRAMES_PER_BUFFER (64)
+#define FRAMES_PER_BUFFER (1024)
 
 /* This routine will be called by the PortAudio engine when audio is needed.
 ** It may called at interrupt level on some machines so don't do anything
@@ -34,7 +34,7 @@ int main(void)
     PaStreamParameters outputParameters;
     PaStream* stream;
     PaError err;
-    Mixer mix(2, SAMPLE_RATE, FRAMES_PER_BUFFER);
+    Mixer mix(3, SAMPLE_RATE, FRAMES_PER_BUFFER);
     Sample atomic;
     int i;
 
@@ -61,6 +61,11 @@ int main(void)
     mix.channel(1).set_volume(AudioChannel::volume_max);
     mix.channel(1).set_panning(AudioChannel::panning_full_right * 0.75);
     mix.channel(1).set_playback_rate(11025 * 1.10); // 10% faster than the other channel
+
+    mix.channel(2).play(&atomic, {.type = LoopType::forward, .begin = 0, .end = samplesize});
+    mix.channel(2).set_volume(AudioChannel::volume_max);
+    mix.channel(2).set_panning(AudioChannel::panning_center);
+    mix.channel(2).set_playback_rate(11025 * .95);
 
     err = Pa_Initialize();
     if (err != paNoError)
