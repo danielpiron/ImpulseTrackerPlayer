@@ -1,6 +1,6 @@
 #include <array>
-#include <cstdint>
 #include <iostream>
+#include <vector>
 
 struct PatternEntry {
     class Note {
@@ -81,12 +81,35 @@ struct PatternEntry {
     Comms comms;
 };
 
+class Pattern {
+    static const size_t max_channels = 64;
+    static const size_t default_rows = 64;
+    using RowType = std::array<PatternEntry, max_channels>;
+
+public:
+    void set(const PatternEntry& entry, size_t row, size_t col)
+    {
+        rows[row].entries[col] = entry;
+    }
+    const RowType& row(size_t r) const { return rows[r].entries; }
+    explicit Pattern(size_t n_rows = default_rows)
+        : rows(n_rows)
+    {
+    }
+
+private:
+    struct Row {
+        RowType entries;
+    };
+    std::vector<Row> rows;
+};
+
 int main(int argc, char* argv[])
 {
     (void)argc;
     (void)argv;
 
-    PatternEntry note;
+    Pattern p;
     std::cin >> argc;
 
     return 0;

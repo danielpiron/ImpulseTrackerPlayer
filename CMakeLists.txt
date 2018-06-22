@@ -7,6 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_executable(sonic main.cc mixer.cc)
 add_executable(player player.cc)
 target_compile_features(sonic PRIVATE cxx_std_11)
+target_compile_features(player PRIVATE cxx_std_11)
 target_compile_options(sonic
                        PUBLIC
                        -Wall
