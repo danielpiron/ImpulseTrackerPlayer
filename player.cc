@@ -88,7 +88,7 @@ class Pattern {
     using RowType = std::array<PatternEntry, max_channels>;
 
 public:
-    void set(const PatternEntry& entry, size_t row, size_t col)
+    void set(size_t row, size_t col, const PatternEntry& entry)
     {
         rows[row].entries[col] = entry;
     }
@@ -131,15 +131,28 @@ struct header {
     uint8_t channel_panning[64];
     uint8_t channel_volume[64];
 };
+
+struct pattern_header {
+    uint16_t packed_data_length;
+    uint16_t row_num;
+    uint8_t filler[4];
+};
 #pragma pack(pop)
+}
+
+template<typename T>
+void flex_read(T* buffer, const size_t count, std::istream &f) {
+    f.read(reinterpret_cast<char*>(&buffer[0]), static_cast<std::streamsize>(count * sizeof(T)));
+
 }
 
 template<typename T>
 std::vector<T> load_vector(std::istream &f, const size_t count) {
     std::vector<T> temp(count);
-    f.read(reinterpret_cast<char*>(&temp[0]), static_cast<std::streamsize>(count * sizeof(T)));
+    flex_read(&temp[0], count, f);
     return std::move(temp);
 }
+
 
 int main(int argc, char* argv[])
 {
@@ -154,6 +167,10 @@ int main(int argc, char* argv[])
     auto instrument_offsets = load_vector<uint32_t>(it, it_header.instrument_num);
     auto sample_offsets = load_vector<uint32_t>(it, it_header.sample_num);
     auto pattern_offsets = load_vector<uint32_t>(it, it_header.pattern_num);
+
+    it_file::pattern_header pat_header;
+    it.seekg(pattern_offsets[0]);
+    flex_read(&pat_header, 1, it);
 
     Pattern p;
     std::cin >> argc;
