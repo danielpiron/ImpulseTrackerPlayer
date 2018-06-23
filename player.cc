@@ -143,6 +143,18 @@ int main(int argc, char* argv[])
     it_file::header it_header;
     it.read(reinterpret_cast<char*>(&it_header), sizeof it_header);
 
+    std::vector<uint8_t> orders(it_header.order_num);
+    it.read(reinterpret_cast<char*>(&orders[0]), it_header.order_num);
+
+    std::vector<uint32_t> instrument_offsets(it_header.instrument_num);
+    it.read(reinterpret_cast<char*>(&instrument_offsets[0]), static_cast<std::streamsize>(it_header.instrument_num * sizeof(instrument_offsets[0])));
+
+    std::vector<uint32_t> sample_offsets(it_header.sample_num);
+    it.read(reinterpret_cast<char*>(&sample_offsets[0]), static_cast<std::streamsize>(it_header.sample_num * sizeof(sample_offsets[0])));
+
+    std::vector<uint32_t> pattern_offsets(it_header.pattern_num);
+    it.read(reinterpret_cast<char*>(&pattern_offsets[0]), static_cast<std::streamsize>(it_header.pattern_num * sizeof(pattern_offsets[0])));
+
     Pattern p;
     std::cin >> argc;
 
