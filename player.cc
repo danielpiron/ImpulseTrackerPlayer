@@ -10,7 +10,8 @@ struct PatternEntry {
         static const uint8_t off = 255;
 
     public:
-        std::string to_string() const {
+        std::string to_string() const
+        {
             if (is_empty()) {
                 return "...";
             }
@@ -108,7 +109,8 @@ public:
     {
         rows[row].entries[col] = entry;
     }
-    const PatternEntry entry(size_t row, size_t col) const {
+    const PatternEntry entry(size_t row, size_t col) const
+    {
         return rows[row].entries[col];
     }
     const RowType& row(size_t r) const { return rows[r].entries; }
@@ -159,44 +161,31 @@ struct pattern_header {
 #pragma pack(pop)
 }
 
-template<typename T>
-void flex_read(T* buffer, const size_t count, std::istream &f) {
+template <typename T>
+void flex_read(T* buffer, const size_t count, std::istream& f)
+{
     f.read(reinterpret_cast<char*>(&buffer[0]), static_cast<std::streamsize>(count * sizeof(T)));
-
 }
 
-template<typename T>
-std::vector<T> load_vector(std::istream &f, const size_t count) {
+template <typename T>
+std::vector<T> load_vector(std::istream& f, const size_t count)
+{
     std::vector<T> temp(count);
     flex_read(&temp[0], count, f);
     return std::move(temp);
 }
 
-
-int main(int argc, char* argv[])
+Pattern unpack_pattern(std::istream& f)
 {
-    (void)argc;
-    (void)argv;
-
-    std::ifstream it("/home/piron/Downloads/m4v-fasc.it", std::ios::binary);
-    it_file::header it_header;
-    it.read(reinterpret_cast<char*>(&it_header), sizeof it_header);
-
-    auto orders = load_vector<uint8_t>(it, it_header.order_num);
-    auto instrument_offsets = load_vector<uint32_t>(it, it_header.instrument_num);
-    auto sample_offsets = load_vector<uint32_t>(it, it_header.sample_num);
-    auto pattern_offsets = load_vector<uint32_t>(it, it_header.pattern_num);
-
     it_file::pattern_header pat_header;
-    it.seekg(pattern_offsets[0]);
-    flex_read(&pat_header, 1, it);
+    flex_read(&pat_header, 1, f);
 
     Pattern p;
     uint8_t row = 0;
     uint8_t mask_variables[64];
     PatternEntry entries[64];
     while (row < pat_header.row_num) {
-        uint8_t channel_variable = it.get();
+        uint8_t channel_variable = f.get();
         if (channel_variable == 0) {
             row++;
             continue;
@@ -204,29 +193,27 @@ int main(int argc, char* argv[])
         uint8_t mask_variable = 0;
         uint8_t channel = (channel_variable - 1) & 63;
         if (channel_variable & 128) {
-            mask_variable = it.get();
+            mask_variable = f.get();
             mask_variables[channel] = mask_variable;
-        }
-        else {
+        } else {
             mask_variable = mask_variables[channel];
         }
         if (mask_variable & 1) {
-            entries[channel].note = PatternEntry::Note(it.get());
+            entries[channel].note = PatternEntry::Note(f.get());
         }
         if (mask_variable & 2) {
-            entries[channel].inst = PatternEntry::Inst(it.get());
+            entries[channel].inst = PatternEntry::Inst(f.get());
         }
         if (mask_variable & 4) {
-            uint8_t vol_comm = it.get();
+            uint8_t vol_comm = f.get();
             if (vol_comm <= 64) {
                 entries[channel].comms[0] = PatternEntry::Command(PatternEntry::Command::Type::set_volume, vol_comm);
-            }
-            else if (vol_comm >= 128 && vol_comm <= 192) {
+            } else if (vol_comm >= 128 && vol_comm <= 192) {
                 entries[channel].comms[0] = PatternEntry::Command(PatternEntry::Command::Type::set_panning, vol_comm - 65);
             }
         }
         if (mask_variable & 8) {
-            uint8_t it_command = it.get();
+            uint8_t it_command = f.get();
             PatternEntry::Command::Type type;
             switch (it_command) {
             case 0: // None
@@ -242,7 +229,7 @@ int main(int argc, char* argv[])
                 type = PatternEntry::Command::Type::none;
                 break;
             }
-            entries[channel].comms[1] = PatternEntry::Command(type, it.get());
+            entries[channel].comms[1] = PatternEntry::Command(type, f.get());
         }
         PatternEntry entry;
         if (mask_variable & (16 | 1)) {
@@ -259,14 +246,42 @@ int main(int argc, char* argv[])
         }
         p.set(row, channel, entry);
     }
+    return p;
+}
+
+int main(int argc, char* argv[])
+{
+    (void)argc;
+    (void)argv;
+
+    std::ifstream it("/home/piron/Downloads/m4v-fasc.it", std::ios::binary);
+    it_file::header it_header;
+    it.read(reinterpret_cast<char*>(&it_header), sizeof it_header);
+
+    auto orders = load_vector<uint8_t>(it, it_header.order_num);
+    auto instrument_offsets = load_vector<uint32_t>(it, it_header.instrument_num);
+    auto sample_offsets = load_vector<uint32_t>(it, it_header.sample_num);
+    auto pattern_offsets = load_vector<uint32_t>(it, it_header.pattern_num);
+
+    std::vector<Pattern> patterns;
+    patterns.reserve(it_header.pattern_num);
+
+    for (const auto &offset : pattern_offsets) {
+        if (offset) {
+            it.seekg(offset);
+            patterns.emplace_back(unpack_pattern(it));
+        }
+        else {
+            patterns.emplace_back(Pattern());
+        }
+    }
 
     for (size_t i = 0; i < 64; i++) {
         for (size_t j = 0; j < 16; j++) {
-            std::cout << p.entry(i, j).note.to_string() << " ";
+            std::cout << patterns[0].entry(i, j).note.to_string() << " ";
         }
         std::cout << "\n";
     }
-
 
     std::cin >> argc;
 
