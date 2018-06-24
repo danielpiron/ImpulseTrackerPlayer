@@ -10,6 +10,22 @@ struct PatternEntry {
         static const uint8_t off = 255;
 
     public:
+        std::string to_string() const {
+            if (is_empty()) {
+                return "...";
+            }
+            if (is_cut()) {
+                return "===";
+            }
+            if (is_off()) {
+                return "---";
+            }
+            static const std::string note_names[] = {
+                "C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-"
+            };
+            return note_names[semitone()] + std::to_string(octave());
+        }
+        bool is_note() const { return _index < 190; }
         bool is_empty() const { return _index == empty; }
         bool is_cut() const { return _index == cut; }
         bool is_off() const { return _index == off; }
@@ -92,6 +108,9 @@ public:
     {
         rows[row].entries[col] = entry;
     }
+    const PatternEntry entry(size_t row, size_t col) const {
+        return rows[row].entries[col];
+    }
     const RowType& row(size_t r) const { return rows[r].entries; }
     explicit Pattern(size_t n_rows = default_rows)
         : rows(n_rows)
@@ -173,6 +192,82 @@ int main(int argc, char* argv[])
     flex_read(&pat_header, 1, it);
 
     Pattern p;
+    uint8_t row = 0;
+    uint8_t mask_variables[64];
+    PatternEntry entries[64];
+    while (row < pat_header.row_num) {
+        uint8_t channel_variable = it.get();
+        if (channel_variable == 0) {
+            row++;
+            continue;
+        }
+        uint8_t mask_variable = 0;
+        uint8_t channel = (channel_variable - 1) & 63;
+        if (channel_variable & 128) {
+            mask_variable = it.get();
+            mask_variables[channel] = mask_variable;
+        }
+        else {
+            mask_variable = mask_variables[channel];
+        }
+        if (mask_variable & 1) {
+            entries[channel].note = PatternEntry::Note(it.get());
+        }
+        if (mask_variable & 2) {
+            entries[channel].inst = PatternEntry::Inst(it.get());
+        }
+        if (mask_variable & 4) {
+            uint8_t vol_comm = it.get();
+            if (vol_comm <= 64) {
+                entries[channel].comms[0] = PatternEntry::Command(PatternEntry::Command::Type::set_volume, vol_comm);
+            }
+            else if (vol_comm >= 128 && vol_comm <= 192) {
+                entries[channel].comms[0] = PatternEntry::Command(PatternEntry::Command::Type::set_panning, vol_comm - 65);
+            }
+        }
+        if (mask_variable & 8) {
+            uint8_t it_command = it.get();
+            PatternEntry::Command::Type type;
+            switch (it_command) {
+            case 0: // None
+                type = PatternEntry::Command::Type::none;
+                break;
+            case 1: // A - Set Speed
+                type = PatternEntry::Command::Type::set_speed;
+                break;
+            case 20: // T - Set Tempo
+                type = PatternEntry::Command::Type::set_tempo;
+                break;
+            default:
+                type = PatternEntry::Command::Type::none;
+                break;
+            }
+            entries[channel].comms[1] = PatternEntry::Command(type, it.get());
+        }
+        PatternEntry entry;
+        if (mask_variable & (16 | 1)) {
+            entry.note = entries[channel].note;
+        }
+        if (mask_variable & (32 | 2)) {
+            entry.inst = entries[channel].inst;
+        }
+        if (mask_variable & (64 | 4)) {
+            entry.comms[0] = entries[channel].comms[0];
+        }
+        if (mask_variable & (128 | 8)) {
+            entry.comms[1] = entries[channel].comms[1];
+        }
+        p.set(row, channel, entry);
+    }
+
+    for (size_t i = 0; i < 64; i++) {
+        for (size_t j = 0; j < 16; j++) {
+            std::cout << p.entry(i, j).note.to_string() << " ";
+        }
+        std::cout << "\n";
+    }
+
+
     std::cin >> argc;
 
     return 0;
