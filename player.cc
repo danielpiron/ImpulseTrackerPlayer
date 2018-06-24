@@ -1,6 +1,8 @@
 #include <array>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
+#include <sstream>
 #include <vector>
 
 struct PatternEntry {
@@ -64,9 +66,18 @@ struct PatternEntry {
     public:
         static const uint8_t empty = 255;
         Inst() = default;
+        bool is_empty() const { return _index == empty; }
         explicit Inst(const uint8_t i)
             : _index(i)
         {
+        }
+        std::string to_string() const {
+            if (is_empty()) {
+                return "..";
+            }
+            std::stringstream ss;
+            ss << std::setfill('0') << std::setw(2) << static_cast<int>(_index);
+            return ss.str();
         }
 
     private:
@@ -79,8 +90,39 @@ struct PatternEntry {
             set_speed,
             set_tempo,
             set_volume,
-            set_panning
+            set_panning,
+            unknown
         };
+
+        std::string to_string() const {
+            char type_indicator = '\0';
+            switch (_type) {
+            case Type::none:
+                type_indicator = '.';
+                break;
+            case Type::set_speed:
+                type_indicator = 'A';
+                break;
+            case Type::set_tempo:
+                type_indicator = 'T';
+                break;
+            case Type::set_volume:
+                type_indicator = 'v';
+                break;
+            case Type::set_panning:
+                type_indicator = 'X';
+                break;
+            case Type::unknown:
+                type_indicator = '?';
+                break;
+            }
+            std::stringstream ss;
+            ss << type_indicator;
+            ss << std::setfill('0') << std::setw(2)
+               << std::hex << std::uppercase << static_cast<int>(_value);
+            return ss.str();
+
+        }
         Command() = default;
         explicit Command(Type t, uint8_t v)
             : _type(t)
@@ -93,6 +135,7 @@ struct PatternEntry {
         uint8_t _value = 0;
     };
     using Comms = std::array<Command, 2>;
+    std::string to_string() const { return note.to_string() + ' ' + inst.to_string() + ' ' + comms[0].to_string() + ' ' + comms[1].to_string(); }
 
     Note note;
     Inst inst;
@@ -229,7 +272,7 @@ Pattern unpack_pattern(std::istream& f)
                 type = PatternEntry::Command::Type::set_tempo;
                 break;
             default:
-                type = PatternEntry::Command::Type::none;
+                type = PatternEntry::Command::Type::unknown;
                 break;
             }
             entries[channel].comms[1] = PatternEntry::Command(type, f.get());
@@ -279,11 +322,15 @@ int main(int argc, char* argv[])
         }
     }
 
-    for (size_t i = 0; i < 64; i++) {
-        for (size_t j = 0; j < 16; j++) {
-            std::cout << patterns[0].entry(i, j).note.to_string() << " ";
+    int count = 0;
+    for (const auto &pattern : patterns) {
+        std::cout << "\nPattern #" << count++ << "\n";
+        for (size_t i = 0; i < 64; i++) {
+            for (size_t j = 0; j < 8; j++) {
+                std::cout << pattern.entry(i, j).to_string() << "|";
+            }
+            std::cout << "\n";
         }
-        std::cout << "\n";
     }
 
     std::cin >> argc;
