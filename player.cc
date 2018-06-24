@@ -114,6 +114,7 @@ public:
         return rows[row].entries[col];
     }
     const RowType& row(size_t r) const { return rows[r].entries; }
+    Pattern(Pattern&& rhs) : rows(std::move(rhs.rows)) {}
     explicit Pattern(size_t n_rows = default_rows)
         : rows(n_rows)
     {
@@ -122,6 +123,8 @@ public:
 private:
     struct Row {
         RowType entries;
+        Row() = default;
+        Row(Row&& rhs) : entries(std::move(rhs.entries)) {}
     };
     std::vector<Row> rows;
 };
