@@ -50,7 +50,7 @@ struct PatternEntry {
                 960,
                 907
             };
-            return 16 * periods[semitone()] / octave();
+            return 32 * periods[semitone()] >> octave();
         }
         operator int() const { return _index; }
         Note() = default;
