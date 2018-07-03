@@ -295,35 +295,42 @@ Pattern unpack_pattern(std::istream& f)
     return p;
 }
 
+struct Module {
+    std::string song_name;
+    std::vector<uint8_t> orders;
+    std::vector<Pattern> patterns;
+};
+
 int main(int argc, char* argv[])
 {
     (void)argc;
     (void)argv;
 
+
     std::ifstream it("/home/piron/Downloads/m4v-fasc.it", std::ios::binary);
     it_file::header it_header;
     it.read(reinterpret_cast<char*>(&it_header), sizeof it_header);
 
-    auto orders = load_vector<uint8_t>(it, it_header.order_num);
+    Module mod;
+    mod.orders = load_vector<uint8_t>(it, it_header.order_num);
     auto instrument_offsets = load_vector<uint32_t>(it, it_header.instrument_num);
     auto sample_offsets = load_vector<uint32_t>(it, it_header.sample_num);
     auto pattern_offsets = load_vector<uint32_t>(it, it_header.pattern_num);
 
-    std::vector<Pattern> patterns;
-    patterns.reserve(it_header.pattern_num);
-
+    mod.song_name = it_header.song_name;
+    mod.patterns.reserve(it_header.pattern_num);
     for (const auto &offset : pattern_offsets) {
         if (offset) {
             it.seekg(offset);
-            patterns.emplace_back(unpack_pattern(it));
+            mod.patterns.emplace_back(unpack_pattern(it));
         }
         else {
-            patterns.emplace_back(Pattern());
+            mod.patterns.emplace_back(Pattern());
         }
     }
 
     int count = 0;
-    for (const auto &pattern : patterns) {
+    for (const auto &pattern : mod.patterns) {
         std::cout << "\nPattern #" << count++ << "\n";
         for (size_t i = 0; i < 64; i++) {
             for (size_t j = 0; j < 8; j++) {
