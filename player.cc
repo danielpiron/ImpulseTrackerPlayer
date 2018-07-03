@@ -1,7 +1,7 @@
 #include <array>
 #include <fstream>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <vector>
 
@@ -71,7 +71,8 @@ struct PatternEntry {
             : _index(i)
         {
         }
-        std::string to_string() const {
+        std::string to_string() const
+        {
             if (is_empty()) {
                 return "..";
             }
@@ -94,7 +95,8 @@ struct PatternEntry {
             unknown
         };
 
-        std::string to_string() const {
+        std::string to_string() const
+        {
             char type_indicator = '\0';
             switch (_type) {
             case Type::none:
@@ -121,7 +123,6 @@ struct PatternEntry {
             ss << std::setfill('0') << std::setw(2)
                << std::hex << std::uppercase << static_cast<int>(_value);
             return ss.str();
-
         }
         Command() = default;
         explicit Command(Type t, uint8_t v)
@@ -156,8 +157,12 @@ public:
     {
         return rows[row].entries[col];
     }
+    size_t row_count() const { return rows.size(); }
     const RowType& row(size_t r) const { return rows[r].entries; }
-    Pattern(Pattern&& rhs) : rows(std::move(rhs.rows)) {}
+    Pattern(Pattern&& rhs)
+        : rows(std::move(rhs.rows))
+    {
+    }
     explicit Pattern(size_t n_rows = default_rows)
         : rows(n_rows)
     {
@@ -167,7 +172,10 @@ private:
     struct Row {
         RowType entries;
         Row() = default;
-        Row(Row&& rhs) : entries(std::move(rhs.entries)) {}
+        Row(Row&& rhs)
+            : entries(std::move(rhs.entries))
+        {
+        }
     };
     std::vector<Row> rows;
 };
@@ -301,11 +309,51 @@ struct Module {
     std::vector<Pattern> patterns;
 };
 
+struct PlayerContext {
+    const Module* mod;
+    uint8_t frames_to_next_row;
+    uint8_t current_row;
+    uint8_t current_order;
+    uint8_t frames_per_row; // aka "speed"
+    uint8_t tempo;
+
+    const Pattern& current_pattern() const
+    {
+        return mod->patterns[mod->orders[current_order]];
+    }
+    void process_frame();
+    PlayerContext(const Module* m)
+        : mod(m)
+        , frames_to_next_row(0)
+        , current_row(0)
+        , current_order(0)
+        , frames_per_row(6)
+        , tempo(128)
+    {
+    }
+};
+
+void PlayerContext::process_frame()
+{
+    if (frames_to_next_row == 0) {
+        if (current_row < current_pattern().row_count()) {
+            ++current_row;
+        } else {
+            while (mod->orders[++current_order] == 254) {
+            }
+            if (mod->orders[current_order] == 255
+                || current_order >= mod->orders.size()) {
+                current_order = 0;
+            }
+            current_row = 0;
+        }
+    }
+}
+
 int main(int argc, char* argv[])
 {
     (void)argc;
     (void)argv;
-
 
     std::ifstream it("/home/piron/Downloads/m4v-fasc.it", std::ios::binary);
     it_file::header it_header;
@@ -319,18 +367,17 @@ int main(int argc, char* argv[])
 
     mod.song_name = it_header.song_name;
     mod.patterns.reserve(it_header.pattern_num);
-    for (const auto &offset : pattern_offsets) {
+    for (const auto& offset : pattern_offsets) {
         if (offset) {
             it.seekg(offset);
             mod.patterns.emplace_back(unpack_pattern(it));
-        }
-        else {
+        } else {
             mod.patterns.emplace_back(Pattern());
         }
     }
 
     int count = 0;
-    for (const auto &pattern : mod.patterns) {
+    for (const auto& pattern : mod.patterns) {
         std::cout << "\nPattern #" << count++ << "\n";
         for (size_t i = 0; i < 64; i++) {
             for (size_t j = 0; j < 8; j++) {
@@ -338,6 +385,14 @@ int main(int argc, char* argv[])
             }
             std::cout << "\n";
         }
+    }
+
+    PlayerContext player(&mod);
+    while (true) {
+        std::cout << "Order #" << static_cast<int>(player.current_order)
+                  << "Pattern #" << static_cast<int>(player.mod->orders[player.current_order])
+                  << " - Row#" << static_cast<int>(player.current_row) << "\n";
+        player.process_frame();
     }
 
     std::cin >> argc;
