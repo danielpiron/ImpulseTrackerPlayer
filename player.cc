@@ -347,7 +347,9 @@ void PlayerContext::process_frame()
             }
             current_row = 0;
         }
+        frames_to_next_row = frames_per_row;
     }
+    --frames_to_next_row;
 }
 
 int main(int argc, char* argv[])
@@ -389,9 +391,10 @@ int main(int argc, char* argv[])
 
     PlayerContext player(&mod);
     while (true) {
-        std::cout << "Order #" << static_cast<int>(player.current_order)
-                  << "Pattern #" << static_cast<int>(player.mod->orders[player.current_order])
-                  << " - Row#" << static_cast<int>(player.current_row) << "\n";
+        std::cout << " Order #" << static_cast<int>(player.current_order)
+                  << " Pattern #" << static_cast<int>(player.mod->orders[player.current_order])
+                  << " - Row#" << static_cast<int>(player.current_row)
+                  << "(" << static_cast<int>(player.frames_to_next_row) << ")\n";
         player.process_frame();
     }
 
