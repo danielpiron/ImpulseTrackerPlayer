@@ -311,31 +311,31 @@ struct Module {
 
 struct PlayerContext {
     const Module* mod;
-    uint8_t frames_to_next_row;
+    uint8_t ticks_to_next_row;
     uint8_t current_row;
     uint8_t current_order;
-    uint8_t frames_per_row; // aka "speed"
+    uint8_t ticks_per_row; // aka "speed"
     uint8_t tempo;
 
     const Pattern& current_pattern() const
     {
         return mod->patterns[mod->orders[current_order]];
     }
-    void process_frame();
+    void process_tick();
     PlayerContext(const Module* m)
         : mod(m)
-        , frames_to_next_row(0)
+        , ticks_to_next_row(0)
         , current_row(0)
         , current_order(0)
-        , frames_per_row(6)
+        , ticks_per_row(6)
         , tempo(128)
     {
     }
 };
 
-void PlayerContext::process_frame()
+void PlayerContext::process_tick()
 {
-    if (frames_to_next_row == 0) {
+    if (ticks_to_next_row == 0) {
         if (current_row < current_pattern().row_count()) {
             ++current_row;
         } else {
@@ -347,9 +347,9 @@ void PlayerContext::process_frame()
             }
             current_row = 0;
         }
-        frames_to_next_row = frames_per_row;
+        ticks_to_next_row = ticks_per_row;
     }
-    --frames_to_next_row;
+    --ticks_to_next_row;
 }
 
 int main(int argc, char* argv[])
@@ -394,8 +394,8 @@ int main(int argc, char* argv[])
         std::cout << " Order #" << static_cast<int>(player.current_order)
                   << " Pattern #" << static_cast<int>(player.mod->orders[player.current_order])
                   << " - Row#" << static_cast<int>(player.current_row)
-                  << "(" << static_cast<int>(player.frames_to_next_row) << ")\n";
-        player.process_frame();
+                  << "(" << static_cast<int>(player.ticks_to_next_row) << ")\n";
+        player.process_tick();
     }
 
     std::cin >> argc;
