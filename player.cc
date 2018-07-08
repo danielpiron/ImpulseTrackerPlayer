@@ -313,6 +313,7 @@ struct PlayerContext {
     const Module* mod;
     uint8_t ticks_to_next_row;
     uint8_t current_row;
+    uint8_t breaking_row;
     uint8_t current_order;
     uint8_t ticks_per_row; // aka "speed"
     uint8_t tempo;
@@ -322,10 +323,12 @@ struct PlayerContext {
         return mod->patterns[mod->orders[current_order]];
     }
     void process_tick();
+    void advance_to_next_order();
     PlayerContext(const Module* m)
         : mod(m)
         , ticks_to_next_row(0)
         , current_row(0)
+        , breaking_row(64)
         , current_order(0)
         , ticks_per_row(6)
         , tempo(128)
@@ -333,19 +336,23 @@ struct PlayerContext {
     }
 };
 
+void PlayerContext::advance_to_next_order()
+{
+    while (mod->orders[++current_order] == 254) {
+    }
+    if (mod->orders[current_order] == 255
+        || current_order >= mod->orders.size()) {
+        current_order = 0;
+    }
+}
+
 void PlayerContext::process_tick()
 {
     if (ticks_to_next_row == 0) {
-        if (current_row < current_pattern().row_count()) {
-            ++current_row;
-        } else {
-            while (mod->orders[++current_order] == 254) {
-            }
-            if (mod->orders[current_order] == 255
-                || current_order >= mod->orders.size()) {
-                current_order = 0;
-            }
+        if (++current_row >= breaking_row) {
+            advance_to_next_order();
             current_row = 0;
+            breaking_row = current_pattern().row_count();
         }
         ticks_to_next_row = ticks_per_row;
     }
