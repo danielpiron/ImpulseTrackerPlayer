@@ -66,6 +66,7 @@ struct PatternEntry {
     public:
         static const uint8_t empty = 255;
         Inst() = default;
+        operator int() const { return _index; }
         bool is_empty() const { return _index == empty; }
         explicit Inst(const uint8_t i)
             : _index(i)
@@ -121,19 +122,23 @@ struct PatternEntry {
             std::stringstream ss;
             ss << type_indicator;
             ss << std::setfill('0') << std::setw(2)
-               << std::hex << std::uppercase << static_cast<int>(_value);
+               << std::hex << std::uppercase << static_cast<int>(_param);
             return ss.str();
         }
+        bool is_type(Type t) const { return _type == t; }
+        uint8_t param() const { return _param; }
+        uint8_t param_hi_nybble() const { return _param >> 4; }
+        uint8_t param_lo_nybble() const { return _param & 15; }
         Command() = default;
-        explicit Command(Type t, uint8_t v)
+        explicit Command(Type t, uint8_t p)
             : _type(t)
-            , _value(v)
+            , _param(p)
         {
         }
 
     private:
         Type _type = Type::none;
-        uint8_t _value = 0;
+        uint8_t _param = 0;
     };
     using Comms = std::array<Command, 2>;
     std::string to_string() const { return note.to_string() + ' ' + inst.to_string() + ' ' + comms[0].to_string() + ' ' + comms[1].to_string(); }
@@ -310,7 +315,15 @@ struct Module {
 };
 
 struct PlayerContext {
+    struct HostChannel {
+        int sample_index = 0;
+        int period = 0;
+        int volume = 0;
+        bool new_note = false;
+    };
+
     const Module* mod;
+    std::array<HostChannel, 64> host_channels;
     uint8_t ticks_to_next_row;
     uint8_t current_row;
     uint8_t breaking_row;
@@ -322,6 +335,7 @@ struct PlayerContext {
     {
         return mod->patterns[mod->orders[current_order]];
     }
+    void process_row();
     void process_tick();
     void advance_to_next_order();
     PlayerContext(const Module* m)
@@ -346,9 +360,26 @@ void PlayerContext::advance_to_next_order()
     }
 }
 
+void PlayerContext::process_row()
+{
+    size_t c = 0;
+    for (const auto& entry : current_pattern().row(current_row)) {
+        if (entry.note.is_note()) {
+            host_channels[c].period = entry.note.period();
+            host_channels[c].sample_index = entry.inst;
+            host_channels[c].volume = entry.comms[0].is_type(PatternEntry::Command::Type::set_volume)
+                ? entry.comms[0].param()
+                : 64; // This should sample default
+            host_channels[c].new_note = true;
+        }
+        c++;
+    }
+}
+
 void PlayerContext::process_tick()
 {
     if (ticks_to_next_row == 0) {
+        process_row();
         if (++current_row >= breaking_row) {
             advance_to_next_order();
             current_row = 0;
@@ -385,24 +416,25 @@ int main(int argc, char* argv[])
         }
     }
 
-    int count = 0;
-    for (const auto& pattern : mod.patterns) {
-        std::cout << "\nPattern #" << count++ << "\n";
-        for (size_t i = 0; i < 64; i++) {
-            for (size_t j = 0; j < 8; j++) {
-                std::cout << pattern.entry(i, j).to_string() << "|";
-            }
-            std::cout << "\n";
+    PlayerContext player(&mod);
+    const auto& pattern = player.current_pattern();
+    for (size_t i = 0; i < 64; i++) {
+        for (size_t j = 0; j < 8; j++) {
+            std::cout << pattern.entry(i, j).to_string() << "|";
         }
+        std::cout << "\n";
     }
 
-    PlayerContext player(&mod);
     while (true) {
-        std::cout << " Order #" << static_cast<int>(player.current_order)
-                  << " Pattern #" << static_cast<int>(player.mod->orders[player.current_order])
-                  << " - Row#" << static_cast<int>(player.current_row)
-                  << "(" << static_cast<int>(player.ticks_to_next_row) << ")\n";
         player.process_tick();
+        for (auto& host_channel : player.host_channels) {
+            if (host_channel.new_note) {
+                std::cout << "Playing Sample #" << host_channel.sample_index
+                          << " at period: " << host_channel.period
+                          << " and volume: " << host_channel.volume << "\n";
+                host_channel.new_note = false;
+            }
+        }
     }
 
     std::cin >> argc;
